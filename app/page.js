@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
 import { getProducts } from "@/services/products"
 import AuthButton from "@/components/AuthButton"
 
@@ -9,10 +10,30 @@ export default function Home() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [user, setUser] = useState(null)
 
   useEffect(() => {
     loadProducts()
+    loadUser()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
+
+  async function loadUser() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    setUser(user || null)
+  }
 
   async function loadProducts() {
     try {
@@ -98,12 +119,21 @@ export default function Home() {
                 Ver coleção
               </a>
 
-              <Link
-                href="/login"
-                className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:scale-105 hover:border-rose-300 hover:text-rose-500"
-              >
-                Criar conta
-              </Link>
+              {!user ? (
+                <Link
+                  href="/login"
+                  className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:scale-105 hover:border-rose-300 hover:text-rose-500"
+                >
+                  Criar conta
+                </Link>
+              ) : (
+                <Link
+                  href="/checkout"
+                  className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:scale-105 hover:border-rose-300 hover:text-rose-500"
+                >
+                  Ir para checkout
+                </Link>
+              )}
             </div>
           </div>
 

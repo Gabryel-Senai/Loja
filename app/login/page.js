@@ -17,6 +17,48 @@ export default function LoginPage() {
   const [mensagem, setMensagem] = useState("")
   const [erro, setErro] = useState("")
 
+  async function ensureProfile(user, nomeDigitado = "") {
+    if (!user?.id) return
+
+    const nomeFinal =
+      nomeDigitado ||
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      ""
+
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle()
+
+    if (!existingProfile) {
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: user.id,
+        full_name: nomeFinal,
+        role: "customer",
+      })
+
+      if (insertError) {
+        console.error("Erro ao criar profile:", insertError)
+      }
+
+      return
+    }
+
+    if (!existingProfile.full_name && nomeFinal) {
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ full_name: nomeFinal })
+        .eq("id", user.id)
+
+      if (updateError) {
+        console.error("Erro ao atualizar nome do profile:", updateError)
+      }
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
@@ -25,12 +67,16 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password: senha,
         })
 
         if (error) throw error
+
+        if (data?.user) {
+          await ensureProfile(data.user)
+        }
 
         router.push("/")
         router.refresh()
@@ -40,19 +86,16 @@ export default function LoginPage() {
           password: senha,
           options: {
             data: {
-              nome_completo: nome,
+              full_name: nome,
+              name: nome,
             },
           },
         })
 
         if (error) throw error
 
-        if (data.user) {
-          await supabase.from("perfis").upsert({
-            id: data.user.id,
-            nome_completo: nome,
-            papel: "cliente",
-          })
+        if (data?.user) {
+          await ensureProfile(data.user, nome)
         }
 
         setMensagem("Cadastro realizado com sucesso. Agora faça login.")

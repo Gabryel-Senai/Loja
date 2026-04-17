@@ -1,87 +1,136 @@
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase-server';
-import { formatPrice } from '@/lib/utils';
+"use client"
 
-export const metadata = {
-  title: 'Painel | Aurora Femme'
-};
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { supabase } from "@/lib/supabaseClient"
 
-export default async function AdminPage() {
-  const supabase = createClient();
+export default function AdminPage() {
+  const [loading, setLoading] = useState(true)
+  const [authorized, setAuthorized] = useState(false)
+  const [profile, setProfile] = useState(null)
 
-  const { data: products } = await supabase
-    .from('products')
-    .select('*')
-    .order('created_at', { ascending: false });
+  useEffect(() => {
+    checkAccess()
+  }, [])
 
-  const totalProducts = products?.length || 0;
-  const totalActive = products?.filter((item) => item.active).length || 0;
-  const totalStock = products?.reduce((sum, item) => sum + Number(item.stock || 0), 0) || 0;
+  async function checkAccess() {
+    setLoading(true)
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      setAuthorized(false)
+      setLoading(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single()
+
+    if (error || !data) {
+      setAuthorized(false)
+      setLoading(false)
+      return
+    }
+
+    setProfile(data)
+
+    if (data.role === "owner" || data.role === "admin") {
+      setAuthorized(true)
+    } else {
+      setAuthorized(false)
+    }
+
+    setLoading(false)
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#f5f7fb] p-6">
+        <div className="mx-auto max-w-5xl rounded-3xl bg-white p-8 shadow-lg">
+          <p className="text-slate-600">Carregando painel...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (!authorized) {
+    return (
+      <main className="min-h-screen bg-[#f5f7fb] p-6">
+        <div className="mx-auto max-w-3xl rounded-3xl bg-white p-8 shadow-lg">
+          <h1 className="text-3xl font-black text-slate-900">
+            Acesso negado
+          </h1>
+          <p className="mt-3 text-slate-600">
+            Você não tem permissão para acessar o painel administrativo.
+          </p>
+
+          <Link
+            href="/"
+            className="mt-6 inline-block rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-500"
+          >
+            Voltar para a loja
+          </Link>
+        </div>
+      </main>
+    )
+  }
 
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-600">Painel administrativo</p>
-          <h1 className="mt-2 text-3xl font-black">Gerencie sua loja</h1>
-          <p className="mt-2 text-slate-500">Cadastre produtos, atualize preços, estoque e status de publicação.</p>
-        </div>
-        <Link href="/admin/produtos/novo" className="btn-primary">
-          Novo produto
-        </Link>
-      </div>
+    <main className="min-h-screen bg-[#f5f7fb] p-6">
+      <div className="mx-auto max-w-6xl rounded-3xl bg-white p-8 shadow-lg">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900">
+              Painel Administrativo
+            </h1>
+            <p className="mt-2 text-slate-500">
+              Bem-vindo, {profile?.full_name || "Admin"}.
+            </p>
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft">
-          <p className="text-sm text-slate-500">Produtos cadastrados</p>
-          <p className="mt-3 text-4xl font-black">{totalProducts}</p>
+          <Link
+            href="/"
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-rose-300 hover:text-rose-500"
+          >
+            Voltar para loja
+          </Link>
         </div>
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft">
-          <p className="text-sm text-slate-500">Produtos ativos</p>
-          <p className="mt-3 text-4xl font-black">{totalActive}</p>
-        </div>
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-soft">
-          <p className="text-sm text-slate-500">Itens em estoque</p>
-          <p className="mt-3 text-4xl font-black">{totalStock}</p>
-        </div>
-      </div>
 
-      <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-soft">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-5 py-4 text-left text-sm font-bold text-slate-700">Produto</th>
-                <th className="px-5 py-4 text-left text-sm font-bold text-slate-700">Categoria</th>
-                <th className="px-5 py-4 text-left text-sm font-bold text-slate-700">Preço</th>
-                <th className="px-5 py-4 text-left text-sm font-bold text-slate-700">Estoque</th>
-                <th className="px-5 py-4 text-left text-sm font-bold text-slate-700">Status</th>
-                <th className="px-5 py-4 text-left text-sm font-bold text-slate-700">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products?.map((product) => (
-                <tr key={product.id} className="border-t border-slate-100">
-                  <td className="px-5 py-4 font-semibold text-slate-900">{product.name}</td>
-                  <td className="px-5 py-4 text-slate-600">{product.category}</td>
-                  <td className="px-5 py-4 text-slate-600">{formatPrice(product.price)}</td>
-                  <td className="px-5 py-4 text-slate-600">{product.stock}</td>
-                  <td className="px-5 py-4">
-                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${product.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                      {product.active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <Link href={`/admin/produtos/${product.id}/editar`} className="font-semibold text-brand-700 hover:underline">
-                      Editar
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+            <h2 className="text-xl font-black text-slate-900">
+              Produtos
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Aqui vamos colocar cadastro, edição, preço e estoque.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+            <h2 className="text-xl font-black text-slate-900">
+              Pedidos
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Aqui vamos acompanhar compras e pagamentos.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+            <h2 className="text-xl font-black text-slate-900">
+              Clientes
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Aqui vamos gerenciar contas e permissões.
+            </p>
+          </div>
         </div>
       </div>
-    </section>
-  );
+    </main>
+  )
 }

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { getProductById } from "@/services/products"
+import AuthButton from "@/components/AuthButton"
 
 export default function Checkout() {
   const searchParams = useSearchParams()
@@ -71,12 +72,7 @@ export default function Checkout() {
             ← Voltar para a loja
           </Link>
 
-          <Link
-            href="/login"
-            className="text-sm font-semibold text-slate-600 hover:text-rose-500"
-          >
-            Login
-          </Link>
+          <AuthButton />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -159,7 +155,10 @@ export default function Checkout() {
             {!loadingProduto && produto && (
               <div className="space-y-4">
                 <img
-                  src={produto.imagem_url || "https://placehold.co/600x800?text=Produto"}
+                  src={
+                    produto.imagem_url ||
+                    "https://placehold.co/600x800?text=Produto"
+                  }
                   alt={produto.nome || "Produto"}
                   className="h-80 w-full rounded-2xl object-cover"
                 />
